@@ -59,17 +59,27 @@ Slides are Jekyll posts stored in `_posts/`. Jekyll processes each post and the 
    ```
 3. Write slide content in Markdown below the front matter.
 
-Posts are rendered in **reverse chronological order** (newest date first). Use the date portion of the filename to control slide order — lower dates appear later, higher dates appear earlier.
+### Slide Order
+
+`index.html` iterates posts with `{% for post in site.posts reversed %}`. Jekyll's `site.posts` is reverse chronological by default; `.reversed` flips it back to chronological. The result:
+
+- **Lower dates → appear earlier** (toward the start of the deck)
+- **Higher dates → appear later** (toward the end of the deck)
+- `0000-01-01-intro.md` (lowest possible date) is therefore the **first** slide
+
+Use the `YYYY-MM-DD` prefix to explicitly control slide order. Do not use arbitrary dates.
 
 ### Slide Front Matter Options
 
-The `_includes/slide.html` template supports optional front matter keys:
+The `_includes/slide.html` template reads these front matter keys:
 
-| Key | Purpose |
-|-----|---------|
-| `id` | Sets the `id` attribute on the `<section>` element |
-| `class` | Adds CSS classes to the slide `<section>` |
-| Any `data-*` attribute | Passed through as HTML data attributes on `<section>` |
+| Key | HTML result | Notes |
+|-----|-------------|-------|
+| `slide-id` | `id="..."` on `<section>` | Use for anchor links |
+| `classes` | Extra CSS classes on `<section>` | Array, e.g. `classes: [big, dark]`; defaults to `slide` class if omitted |
+| Any other key | `data-<key>="<value>"` on `<section>` | Passed through as Reveal.js data attributes |
+
+> Note: the default class `slide` is added only when `classes` is empty or absent.
 
 ---
 
@@ -81,13 +91,27 @@ Key settings (do not change without understanding downstream effects):
 |---------|-------|-------|
 | `markdown` | `kramdown` | Markdown parser |
 | `highlighter` | `rouge` | Syntax highlighting |
-| `theme` | `moon` (solarized dark variant) | Reveal.js theme |
-| Presentation size | 1000×920 px | Set in `reveal` config block |
-| `transition` | `linear` | Slide transition animation |
-| `backgroundTransition` | `slide` | Background transition |
-| `slideNumber` | `"c/t"` | Shows current/total slide numbers |
-| `controls` | `false` | Arrow UI controls are hidden |
-| `progress` | `true` | Progress bar at bottom |
+| `solarized.theme` | `dark` | Sets the `<html>` class; controls CSS color scheme |
+| Presentation size | 1000×920 px | `reveal.width` / `reveal.height` |
+| `reveal.margin` | `0.1` | 10% empty space around content |
+| `reveal.minScale` | `0.2` | Minimum scale factor |
+| `reveal.maxScale` | `1.5` | Maximum scale factor |
+| `reveal.transition` | `linear` | Slide transition animation |
+| `reveal.backgroundTransition` | `slide` | Background transition |
+| `slideNumber.format` | `"c/t"` | Shows flattened index / total |
+| `reveal.controls` | `false` | Arrow UI controls hidden |
+| `reveal.progress` | `true` | Progress bar at bottom |
+| `reveal.history` | `true` | Pushes slide changes to browser history |
+| `reveal.center` | `true` | Vertical centering of slides |
+| `reveal.fragments` | `true` | Fragment animations enabled globally |
+| `plugins` | `jemoji` | Emoji support in slide content (`:smile:` syntax) |
+| `permalink` | `/:title` | Post URL format |
+
+**Kramdown smart quotes** are configured (`lsquo,rsquo,ldquo,rdquo`); straight quotes in Markdown are converted to curly quotes automatically.
+
+**`baseurl` is intentionally commented out.** The CI build passes `--baseurl "."` directly on the command line.
+
+**`exclude` list** contains legacy `reveal.js/*` paths from when Reveal.js was a git submodule. These entries are harmless now that reveal.js lives in `node_modules/`.
 
 ---
 
@@ -105,7 +129,7 @@ Key settings (do not change without understanding downstream effects):
 script/setup
 ```
 
-This installs Homebrew dependencies, rbenv, bundler, and all gem dependencies. Runs `git submodule update` as well.
+Installs Homebrew dependencies, rbenv, bundler, and all gem dependencies. Runs `git submodule update` as well.
 
 ### Running Locally
 
@@ -152,7 +176,7 @@ This runs:
 |-----|---------|---------|
 | `github-pages` | >= 207 | Jekyll + GitHub Pages ecosystem |
 | `html-proofer` | >= 3.13.0 | HTML validation in CI |
-| `tzinfo-data` | latest | Timezone support (Windows only) |
+| `tzinfo-data` | latest | Timezone support (Windows/mingw only) |
 
 Update Ruby gems with `bundle update`.
 
@@ -176,30 +200,35 @@ Reveal.js is loaded from `node_modules/reveal.js/` and initialized in `_includes
 
 Configuration lives in `_config.yml` under the `reveal` key and is injected into the `Reveal.initialize()` call via Jekyll's Liquid templating.
 
+The `presentation.html` layout applies the `solarized.theme` value (default: `dark`) as a class on `<html>`, which the Reveal.js CSS uses to determine the color scheme.
+
 ---
 
 ## Coding Conventions
 
 ### Formatting (`.editorconfig`)
 
-| File type | Indentation | Line endings |
-|-----------|-------------|-------------|
-| Default | Tabs (4-space width) | LF |
-| JSON, JS, CSS, SCSS, YAML, HTML | 2 spaces | LF |
-| Markdown | 4 spaces | LF |
+| File type | Indentation | `insert_final_newline` | `trim_trailing_whitespace` |
+|-----------|-------------|----------------------|--------------------------|
+| Default (all files) | Tabs (4-space width), LF | `false` | `true` |
+| JSON, JS, CSS, SCSS, YAML, HTML | 2 spaces, LF | `false` | `true` |
+| Markdown | 4 spaces, LF | `true` | `false` |
 
-All files: UTF-8 charset, final newline required.
+All files: UTF-8 charset. Note that only Markdown files require a final newline; trailing whitespace is preserved in Markdown (line-break semantics).
 
 ### Liquid/HTML templates
 
 - Layouts live in `_layouts/`, partials in `_includes/`.
 - Prefer `{% include %}` over duplicating HTML.
 - Keep Reveal.js config in `_config.yml`, not hardcoded in JS.
+- The `presentation.html` layout wraps each post with `{% include slide.html %}` and a `.page-break` div.
+- An optional overview slide is rendered when `site.overview` is truthy (configured in `_config.yml`).
 
 ### Markdown slides
 
 - One concept per slide; keep slides concise.
 - Code blocks should use fenced syntax with language identifiers for proper highlighting.
+- Emoji shortcodes (`:smile:`) work via the `jemoji` Jekyll plugin.
 - Prefer relative links; absolute links break offline use.
 
 ---
@@ -233,6 +262,8 @@ Builds with a custom `--baseurl`, creates a temporary git repo from `_site/`, an
 
 - **No JavaScript test suite** — Reveal.js behavior is not unit tested.
 - **No linting** — no ESLint, RuboCop, or similar linters are configured.
-- **Slide order is date-driven** — the `YYYY-MM-DD` prefix in `_posts/` filenames determines render order; do not use arbitrary dates.
+- **Slide order is date-driven** — the `YYYY-MM-DD` prefix controls order; lower date = earlier slide. Do not use arbitrary dates.
 - **Baseurl is commented out** — `baseurl` in `_config.yml` is intentionally commented out; the CI build passes `--baseurl "."` directly.
 - **node_modules committed** — `node_modules/reveal.js` is tracked in git; do not add a broad `node_modules/` gitignore entry.
+- **Legacy `exclude` entries** — `_config.yml` still excludes `reveal.js/*` submodule paths; harmless but not worth removing as it matches historical CI behavior.
+- **`root = false` in `.editorconfig`** — allows parent-directory EditorConfig files to merge in; no parent config exists in practice.
